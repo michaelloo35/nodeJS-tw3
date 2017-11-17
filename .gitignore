@@ -131,5 +131,5 @@ typings/
 
 # dotenv environment variables file
 .env
-
+.PAM08
 
