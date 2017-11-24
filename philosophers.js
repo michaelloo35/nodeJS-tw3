@@ -1,5 +1,7 @@
 var async = require("async");
 
+maxN = 10;
+maxK = 5;
 // Teoria Współbieżnośi, implementacja problemu 5 filozofów w node.js
 // Opis problemu: http://en.wikipedia.org/wiki/Dining_philosophers_problem
 // 1. Dokończ implementację funkcji podnoszenia widelca (Fork.acquire).
@@ -22,8 +24,6 @@ function randomInt(low, high) {
 // states 0 - free fork , 1 - taken
 var Fork = function () {
     this.state = 0;
-    this.maxN = 10;
-    this.maxK = 5;
     return this;
 };
 
@@ -37,19 +37,19 @@ Fork.prototype.acquire = function (successCallback, failureCallback) {
     var K = 0;
     var pickFork = function (N, K, fork) {
         setTimeout(function () {
-            if (fork.state == 1) {
+            if (fork.state === 1) {
 
                 // exp. backoff
                 N++;
-                if (N < fork.maxK) {
+                if (N < maxK) {
                     K = N;
                 }
                 else {
-                    K = fork.maxK;
+                    K = maxK;
                 }
 
                 // zuzylismy limit prób
-                if (N > fork.maxN) {
+                if (N > maxN) {
                     if (failureCallback) failureCallback();
                 }
                 else {
@@ -63,6 +63,7 @@ Fork.prototype.acquire = function (successCallback, failureCallback) {
     };
     pickFork(N, K, this);
 };
+
 
 // odloz widelec
 Fork.prototype.release = function (callback) {
@@ -78,15 +79,16 @@ var Philosopher = function (id, forks) {
     this.f1 = id % forks.length;
     this.f2 = (id + 1) % forks.length;
     this.eatingDelay = 30;
+    this.think = 10;
     return this;
 };
 
 // jem potem odkładam widelce i opdalam się z mniejszym counterem
 Philosopher.prototype.naiveNext = function (count) {
-    var forks = this.forks
-    var f1 = this.f1
-    var f2 = this.f2
-    var id = this.id
+    var forks = this.forks;
+    var f1 = this.f1;
+    var f2 = this.f2;
+    var id = this.id;
 
     setTimeout(function () {
         async.waterfall([
@@ -102,6 +104,7 @@ Philosopher.prototype.naiveNext = function (count) {
         ]);
     }, this.eatingDelay);
 };
+
 
 // zaimplementuj rozwiązanie naiwne
 // każdy filozof powinien 'count' razy wykonywać cykl
@@ -120,6 +123,7 @@ Philosopher.prototype.startNaive = function (count) {
         // zbierz pierwszy widelec
         forks[f1].acquire(/*successCallback*/ function () {
 
+            // powinien być jeszcze czas na myslenie albo myslenie nexttick
             // zbierz drugi widelec
             forks[f2].acquire(/*successCallback*/ function () {
 
@@ -146,10 +150,85 @@ Philosopher.prototype.startNaive = function (count) {
     }
 };
 
+Philosopher.prototype.acquire2 = function (successCallback, failureCallback) {
+    var N = 0;
+    var K = 0;
+    var f1 = this.f1;
+    var f2 = this.f2;
+
+    var pickForks = function (N, K, f1, f2) {
+        setTimeout(function () {
+            if (forks[f1].state === 0 && forks[f2].state === 0) {
+                forks[f1].state = 1;
+                forks[f2].state = 1;
+                if (successCallback) successCallback();
+            }
+            else {
+                // exp. backoff
+                N++;
+                if (N < maxK) {
+                    K = N;
+                }
+                else {
+                    K = maxK;
+                }
+
+                // zuzylismy limit prób
+                if (N > maxN) {
+                    if (failureCallback) failureCallback();
+                }
+                else {
+                    pickForks(N, K, f1, f2);
+                }
+            }
+        }, randomInt(0, Math.pow(2, K))); // losujemy czaso czewkiania z przedziału 0,2^k
+    };
+    pickForks(N, K, f1, f2);
+};
+
+function release2(f1, f2) {
+    forks[f1].state = 0;
+    forks[f2].state = 0;
+}
+
+Philosopher.prototype.startNaive2 = function (count) {
+    var f1 = this.f1;
+    var f2 = this.f2;
+    var id = this.id;
+
+    if (startTimesNaive2[id] === undefined) {
+        startTimesNaive2[id] = new Date().getTime();
+    }
+
+    if (count !== 0) {
+        setTimeout(function () {
+            philosophers[id].acquire2(function () {
+                setTimeout(/*successCallback*/ function () {
+                    async.waterfall([
+                        function (callback) {
+                            // release forks
+                            release2(f1, f2);
+                            if (callback) callback()
+                        },
+                        function () {
+                            philosophers[id].startNaive2(count - 1)
+                        }
+                    ]);
+                }, this.eatingDelay);
+            }, /*failureCallback*/ function () {
+                philosophers[id].startNaive2(count)
+            })
+        }, this.think)
+    } else if (count === 0) {
+        console.log(id + " finished after " + (new Date().getTime() - startTimesNaive2[id]) + "ms.");
+    }
+};
 
 // zaimplementuj rozwiązanie asymetryczne
 // każdy filozof powinien 'count' razy wykonywać cykl
 // podnoszenia widelców -- jedzenia -- zwalniania widelców
+
+
 Philosopher.prototype.startAsymetric = function (count) {
 
     if (this.id % 2 === 0)
@@ -240,11 +319,12 @@ var forks = [];
 var philosophers = [];
 var startTimesNaive = [];
 var startTimesAsym = [];
+var startTimesNaive2 = []
 var startTimesConductor = [];
 var conductor = new Conductor();
 
 
 for (var i = 0; i < N; i++) forks.push(new Fork());
 for (var i = 0; i < N; i++) philosophers.push(new Philosopher(i, forks));
-for (var i = 0; i < N; i++) philosophers[i].startConductor(10);
+for (var i = 0; i < N; i++) philosophers[i].startNaive(10);
 
