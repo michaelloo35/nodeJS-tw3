@@ -49,12 +49,12 @@ Fork.prototype.acquire = function (successCallback, failureCallback) {
                 }
 
                 // zuzylismy limit prób
-                if (N > maxN) {
-                    if (failureCallback) failureCallback();
-                }
-                else {
+                // if (N > maxN) {
+                //     if (failureCallback) failureCallback();
+                // }
+                // else {
                     pickFork(N, K, fork);
-                }
+                // }
             } else {
                 fork.state = 1;
                 if (successCallback) successCallback();
@@ -174,12 +174,12 @@ Philosopher.prototype.acquire2 = function (successCallback, failureCallback) {
                 }
 
                 // zuzylismy limit prób
-                if (N > maxN) {
-                    if (failureCallback) failureCallback();
-                }
-                else {
+                // if (N > maxN) {
+                //     if (failureCallback) failureCallback();
+                // }
+                // else {
                     pickForks(N, K, f1, f2);
-                }
+                // }
             }
         }, randomInt(0, Math.pow(2, K))); // losujemy czaso czewkiania z przedziału 0,2^k
     };
@@ -326,5 +326,4 @@ var conductor = new Conductor();
 
 for (var i = 0; i < N; i++) forks.push(new Fork());
 for (var i = 0; i < N; i++) philosophers.push(new Philosopher(i, forks));
-for (var i = 0; i < N; i++) philosophers[i].startNaive(10);
-
+for (var i = 0; i < N; i++) philosophers[i].startNaive2(10);
